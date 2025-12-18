@@ -10,7 +10,7 @@ class JWTSettings(BaseModel):
 
     private_key_path: Path = BASE_DIR / "security" / "private.pem"
     public_key_path: Path = BASE_DIR / "security" / "public.pem"
-    algorithm: str = "RSA256"
+    algorithm: str = "RS256"
 
 class Settings(BaseSettings):
 
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Database Settings
     DB_USER: str
-    DB_PASS: int
+    DB_PASS: int | str
     DB_HOST: str
     DB_PORT: int
     DB_NAME: str
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     BASE_FASTAPI_URL: str
 
     @property
-    def get_session(self):
+    def get_db(self):
         
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
     

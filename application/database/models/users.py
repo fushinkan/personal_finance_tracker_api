@@ -9,6 +9,7 @@ from datetime import datetime
 if TYPE_CHECKING:
     from application.database.models.transactions import Transactions
     from application.database.models.categories import Categories
+    from application.database.models.tokens import Tokens
 
 class Users(Base):
     __tablename__ = "users"
@@ -26,3 +27,4 @@ class Users(Base):
     # Relationships
     transactions: Mapped[list["Transactions"]] = relationship("Transactions", back_populates="user")
     categories: Mapped[list["Categories"]] = relationship("Categories", back_populates="user")
+    token: Mapped["Tokens"] = relationship("Tokens", back_populates="user", cascade="all, delete-orphan")

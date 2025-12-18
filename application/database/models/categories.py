@@ -19,8 +19,8 @@ class Categories(Base):
 
     # Service Columns
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now, onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    user: Mapped["Users"] = relationship("Users", back_populates="transactions")
+    user: Mapped["Users"] = relationship("Users", back_populates="categories")
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))

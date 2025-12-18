@@ -1,0 +1,43 @@
+services:
+  alembic:
+    build: 
+      context: .
+      dockerfile: alembic/Dockerfile
+    container_name: alembic
+    volumes:
+      - ./alembic:/finmindai/alembic
+    depends_on:
+      - db
+    env_file:
+      - "./.env"
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi
+    ports:
+      - 222:8081
+    env_file:
+      - "./.env"
+    depends_on:
+      - db
+    restart: unless-stopped
+    
+  db:
+    image: postgres:18-alpine
+    container_name: database
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - 5433:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file:
+      - "./.env"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
