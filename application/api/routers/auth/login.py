@@ -9,7 +9,7 @@ from typing import Dict
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-@router.post("/login")
+@router.post("/login", status_code=status.HTTP_200_OK)
 async def login_user_endpoint(
     user_data: UserLoginSchema, 
     session: AsyncSession = Depends(get_session)

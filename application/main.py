@@ -3,7 +3,10 @@ from fastapi import FastAPI
 
 from application.api.routers.auth.register import router as register_router
 from application.api.routers.auth.login import router as login_router
+from application.api.routers.auth.logout import router as logout_router
+from application.api.routers.transactions.transactions import router as transactions_router
 from application.api.health import router as health_router
+
 
 app = FastAPI(
     title="FinMind AI",
@@ -13,6 +16,8 @@ app = FastAPI(
 
 app.include_router(register_router)
 app.include_router(login_router)
+app.include_router(logout_router)
+app.include_router(transactions_router)
 app.include_router(health_router)
 
 if __name__ == "__main__":

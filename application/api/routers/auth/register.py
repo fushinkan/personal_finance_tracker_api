@@ -10,7 +10,7 @@ from typing import Dict
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/register")
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user_endpoint(
     *, 
     user_data: UserCreateSchema, 

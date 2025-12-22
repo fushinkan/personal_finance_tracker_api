@@ -128,7 +128,8 @@ class UserService:
             else:
                 refresh_payload = {
                     "sub": str(existing_user.id),
-                    "exp": datetime.now(tz=timezone.utc) + timedelta(days=30)
+                    "exp": datetime.now(tz=timezone.utc) + timedelta(days=30),
+                    "type": "refresh"
                 }
 
                 refresh_token = Tokens(
@@ -139,7 +140,8 @@ class UserService:
                 
                 access_payload = {
                     "sub": str(existing_user.id),
-                    "exp": datetime.now(tz=timezone.utc) + timedelta(minutes=15)
+                    "exp": datetime.now(tz=timezone.utc) + timedelta(minutes=15),
+                    "type": "access"
                 }
 
                 access_token = JWTGeneration.encode_jwt(payload=access_payload)

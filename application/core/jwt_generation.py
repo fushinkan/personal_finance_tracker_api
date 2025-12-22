@@ -26,7 +26,7 @@ class JWTGeneration:
         access_token: str | bytes,
         public_key: str = settings.jwt_settings.public_key_path.read_text(),
         algorithm: str = settings.jwt_settings.algorithm
-    ) -> str:
+    ) -> dict:
         #Doc String
 
-        return jwt.decode(access_token=access_token, key=public_key, algorithms=[algorithm], options={"verify_exp": True})
+        return jwt.decode(token=access_token, key=public_key, algorithms=[algorithm], options={"verify_exp": True})
