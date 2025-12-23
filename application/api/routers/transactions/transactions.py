@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -6,8 +6,16 @@ from application.api.dependencies.get_user import get_current_user
 from application.api.dependencies.transactions import get_transactions_params
 from application.api.handlers.transactions import TransactionsService
 from application.database.models.users import Users
-from application.schemas.transactions import TransactionsSchema, TransactionsDisplaySchema
+from application.schemas.transactions import (
+    TransactionsSchema, 
+    PagedTransactionsDisplaySchema,
+    TransactionResponseWithMetaSchema,
+    DeleteResponseSchema,
+    TransactionsResponseSchema
+)
+
 from application.database.base import get_session
+from application.schemas.transactions import TransactionResponseWithMetaSchema
 
 
 from typing import Dict, Any
@@ -21,7 +29,7 @@ async def new_transaction_endpoint(
     transaction_data: TransactionsSchema,
     current_user: Users = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
-) -> Dict[str, Any]:
+) -> TransactionsResponseSchema:
     """
     Creating a new transactions for concrete user.
     
@@ -42,7 +50,6 @@ async def new_transaction_endpoint(
             amount=transaction_data.amount,
             category=transaction_data.category,
             transaction_type=transaction_data.transaction_type,
-            date=transaction_data.date,
             description=transaction_data.description,
             session=session
         )
@@ -51,19 +58,19 @@ async def new_transaction_endpoint(
 
     except HTTPException:
         raise
-
+    
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal service error"
+            detail=f"Internal service error: {str(e)}"
         )
 
-@router.get("/paged_transactions", status_code=status.HTTP_200_OK)
+@router.get("/paged_transactions", status_code=status.HTTP_200_OK, response_model=TransactionResponseWithMetaSchema)
 async def paged_transactions_endpoint(
-    transaction_data: TransactionsDisplaySchema = Depends(get_transactions_params),
+    transaction_data: PagedTransactionsDisplaySchema = Depends(get_transactions_params),
     current_user: Users = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
-):
+) -> TransactionResponseWithMetaSchema:
     #Doc string
 
     try:
@@ -82,7 +89,59 @@ async def paged_transactions_endpoint(
 
         return result
     
-    except SQLAlchemyError as e:
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal service error: {str(e)}"
+        )
+
+@router.get("/{transaction_id}", status_code=status.HTTP_200_OK, response_model=TransactionResponseWithMetaSchema)
+async def get_concrete_transaction_endpoint(
+    transaction_id: int = Path(..., description="transaction_id", ge=1),
+    current_user: Users = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+) -> TransactionResponseWithMetaSchema:
+    #Doc String
+
+    try:
+        result = await TransactionsService.get_concrete_transaction_handler(
+            user_id=current_user.id,
+            transaction_id=transaction_id,
+            session=session
+        )
+
+        return result
+     
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal service error: {str(e)}"
+        )
+
+@router.delete("/{transaction_id}", status_code=status.HTTP_200_OK, response_model=DeleteResponseSchema)
+async def delete_concrete_transaction_endpoint(
+    transaction_id: int = Path(..., description="transaction_id", ge=1),
+    current_user: Users = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+) -> DeleteResponseSchema:
+    #Doc String
+
+    try:
+        result = await TransactionsService.delete_concrete_transaction_handler(
+            transaction_id=transaction_id,
+            user_id=current_user.id,
+            session=session
+        )
+
+        return result
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal service error"

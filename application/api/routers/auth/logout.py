@@ -29,15 +29,8 @@ async def logout_user_endpoint(
         await session.commit()
 
         return {"message": "Successfully logged out"}
-    
-    except SQLAlchemyError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Logout failed due to database error"
-        )
 
     except Exception as e:
-        await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Logout failed"

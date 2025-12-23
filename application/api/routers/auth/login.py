@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 from application.schemas.users import UserLoginSchema
 from application.api.handlers.users import UserService
@@ -37,9 +38,9 @@ async def login_user_endpoint(
 
     except HTTPException:
         raise
-
+        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal Server Error"
+            detail="Internal service error"
         )

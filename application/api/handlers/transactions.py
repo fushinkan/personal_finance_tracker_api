@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select, desc, asc, and_, func
+from sqlalchemy import select, desc, asc, and_, func, delete
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 
@@ -8,6 +8,11 @@ from application.database.models.users import Users
 from application.database.models.transactions import Transactions
 from features.pagination_enum import SortOrder, SortField
 from features.transaction_enum import TransactionType
+from application.schemas.transactions import (
+    TransactionResponseWithMetaSchema, 
+    DeleteResponseSchema, 
+    TransactionsResponseSchema
+)
 
 from datetime import datetime, timezone
 from typing import Dict, Any
@@ -23,9 +28,8 @@ class TransactionsService:
         category: str,
         session: AsyncSession,
         transaction_type: TransactionType,
-        date: datetime | None = None,
         description: str | None = None,
-    ) -> Dict[str, Any]:
+    ) -> TransactionsResponseSchema:
         """
         Creating new transaction for concrete user.
 
@@ -34,7 +38,6 @@ class TransactionsService:
             amount: transaction amount
             category: transaction category
             transaction_type: transaction type: income or expense
-            date: transaction date
             description: transaction description
             session: AsyncSession
 
@@ -75,12 +78,13 @@ class TransactionsService:
                 )
             
         except SQLAlchemyError as e:
+            await session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Service temporarily unavailable"
             )
         
-        transaction_date = date or datetime.now(tz=timezone.utc)
+        transaction_date = datetime.now(tz=timezone.utc)
 
         try:
 
@@ -97,16 +101,7 @@ class TransactionsService:
             await session.commit()
             await session.refresh(new_transaction)
 
-            return {
-                "message": "Transaction created successfully",
-                "transaction_id": new_transaction.id,
-                "user_id": new_transaction.user_id,
-                "amount": new_transaction.amount,
-                "category": new_transaction.category,
-                "transaction_type": new_transaction.transaction_type.value,
-                "description": new_transaction.description,
-                "created_at": new_transaction.created_at.isoformat() if new_transaction.created_at else None
-            }
+            return TransactionsResponseSchema.model_validate(new_transaction, from_attributes=True)
 
         except SQLAlchemyError as e:
             raise HTTPException(
@@ -129,7 +124,7 @@ class TransactionsService:
         end_date: datetime | None = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
-    ) -> Dict[str, Any]:
+    ) -> TransactionResponseWithMetaSchema:
         #Doc string
 
         offset = (page - 1) * per_page
@@ -197,31 +192,15 @@ class TransactionsService:
         result = await session.execute(paginated_query)
         transactions = result.scalars().all()
 
-        transaction_data = []
-
-        for t in transactions:
-            transaction_dict = {
-                "id": t.id,
-                "amount": t.amount,
-                "category": t.category,
-                "transaction_type": t.transaction_type,
-                "description": t.description,
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-                "user": {
-                    "id": t.user.id,
-                    "username": t.user.username,
-                    "email": t.user.email
-                } if t.user else None
-            }
-
-            transaction_data.append(transaction_dict)
+        transaction_data = [
+            TransactionsResponseSchema.model_validate(t, from_attributes=True) for t in transactions
+            ]
 
         total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
 
-        return {
-            "data": transaction_data,
-            "meta": {
+        return TransactionResponseWithMetaSchema(
+            data=transaction_data,
+            meta={
                 "pagination": {
                     "page": page,
                     "per_page": per_page,
@@ -241,8 +220,111 @@ class TransactionsService:
                     "order": sort_order
                 }
             }
-        }
+        )
+    
+    #Method for displaying concrete transaction
+    @classmethod
+    async def get_concrete_transaction_handler(
+        cls, 
+        *,
+        user_id: int,
+        transaction_id: int, 
+        session: AsyncSession
+    ) -> TransactionResponseWithMetaSchema:
+        #Doc string
+
+        try:
+            result = await session.execute(
+                select(Transactions)
+                .where(
+                    and_(
+                        Transactions.id == transaction_id,
+                        Transactions.user_id == user_id
+                    )
+                )
+                .options(
+                    selectinload(Transactions.user)
+                )
+            )
+
+            transaction = result.scalar_one_or_none()
+
+            if not transaction:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="transaction not found"
+                )
+            
+            transaction_data = TransactionsResponseSchema.model_validate(transaction, from_attributes=True)
+
+            return TransactionResponseWithMetaSchema(
+                data=[transaction_data],
+                meta={
+                    "user_id": user_id,
+                    "transaction_id": transaction.id,
+                    "retrieved_at": datetime.now(tz=timezone.utc).isoformat()
+                }
+            )
+        
+        except SQLAlchemyError as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Service temporarily unavailable"
+            )
+        
+    #Method for deleting concrete transaction
+    @classmethod
+    async def delete_concrete_transaction_handler(
+        cls, 
+        *,
+        user_id: int, 
+        transaction_id: int,
+        session: AsyncSession
+    ) -> DeleteResponseSchema:
+        #Doc String
+
+        try:
+            check = await session.execute(
+                select(Transactions)
+                .where(
+                    and_(
+                        Transactions.id == transaction_id,
+                        Transactions.user_id == user_id
+                    )
+                )
+            )
+
+            transaction = check.scalar_one_or_none()
+
+            if not transaction:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="transaction not found"
+                )
+
+            await session.execute(
+                delete(Transactions)
+                .where(
+                    and_(
+                        Transactions.id == transaction_id,
+                        Transactions.user_id == user_id
+                    )
+                )
+            )
+
+            await session.commit()
+
+            return DeleteResponseSchema(
+                message=f"Transaction {transaction_id} was successfully deleted",
+                deleted_id=transaction_id,
+                deleted_at=datetime.now(tz=timezone.utc)
+            )
+
+        except SQLAlchemyError as e:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Service temporarily unavailable"
+            )
 
     #Method for displaying transaction with cursor-based pagination
-    #Method for displaying concrete transaction
-    #Method for deleting concrete transaction

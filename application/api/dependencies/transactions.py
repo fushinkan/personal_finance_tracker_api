@@ -1,6 +1,6 @@
 from fastapi import Query
 
-from application.schemas.transactions import TransactionsDisplaySchema
+from application.schemas.transactions import PagedTransactionsDisplaySchema
 from features.transaction_enum import TransactionType
 
 from datetime import datetime
@@ -14,10 +14,10 @@ def get_transactions_params(
     end_date: datetime | None = Query(None, description="end date for sorting"),
     category: str | None = Query(None, description="transaction category"),
     transaction_type: TransactionType | None = Query(None, description="transaction_type")
-) -> TransactionsDisplaySchema:
+) -> PagedTransactionsDisplaySchema:
     #Doc string
 
-    return TransactionsDisplaySchema(
+    return PagedTransactionsDisplaySchema(
         page=page,
         per_page=per_page,
         sort_by=sort_by,
